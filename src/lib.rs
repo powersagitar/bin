@@ -1,7 +1,7 @@
 #![feature(absolute_path)]
 pub fn add(
     source_binaries: &[std::path::PathBuf],
-    destination_dir: &std::path::Path,
+    destination_directory: &std::path::Path,
 ) -> Result<(), String> {
     for source_binary in source_binaries {
         if !source_binary.exists() {
@@ -51,12 +51,12 @@ pub fn add(
             }
         };
 
-        let destination_binary = destination_dir.join(binary_name);
+        let target_symlink = destination_directory.join(binary_name);
 
-        if std::os::unix::fs::symlink(&source_binary_absolute, &destination_binary).is_err() {
+        if std::os::unix::fs::symlink(&source_binary_absolute, &target_symlink).is_err() {
             return Err(format!(
                 "Failed to create symlink {:?} -> {:?}",
-                destination_binary, source_binary_absolute
+                target_symlink, source_binary_absolute
             ));
         }
     }
