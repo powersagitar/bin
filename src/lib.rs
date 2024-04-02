@@ -14,7 +14,7 @@ pub fn add(
             if let Some(binary_name) = binary_name_option {
                 binary_name
             } else {
-                return Err("Failed to get binary name".into());
+                return Err(format!("Failed to get binary name for {:?}", source_binary));
             }
         };
 
@@ -32,7 +32,10 @@ pub fn add(
                 continue;
             }
         } else {
-            return Err("Failed to check if binary exists".into());
+            return Err(format!(
+                "Failed to check if {:?} already exists on $PATH",
+                binary_name
+            ));
         }
 
         let source_binary_absolute = {
@@ -41,14 +44,20 @@ pub fn add(
             if let Ok(source_binary_absolute) = source_binary_absolute_result {
                 source_binary_absolute
             } else {
-                return Err("Failed to get absolute source binary path".into());
+                return Err(format!(
+                    "Failed to get absolute path of {:?}",
+                    source_binary
+                ));
             }
         };
 
-        if std::os::unix::fs::symlink(source_binary_absolute, destination_dir.join(binary_name))
-            .is_err()
-        {
-            return Err("Failed to symlink binary".into());
+        let destination_binary = destination_dir.join(binary_name);
+
+        if std::os::unix::fs::symlink(&source_binary_absolute, &destination_binary).is_err() {
+            return Err(format!(
+                "Failed to create symlink {:?} -> {:?}",
+                destination_binary, source_binary_absolute
+            ));
         }
     }
 
