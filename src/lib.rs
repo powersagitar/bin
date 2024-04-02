@@ -1,3 +1,4 @@
+#![feature(absolute_path)]
 pub fn add(
     source_binaries: &[std::path::PathBuf],
     destination_dir: &std::path::Path,
@@ -30,7 +31,19 @@ pub fn add(
             return Err("Failed to check if binary exists");
         }
 
-        if std::os::unix::fs::symlink(source_binary, destination_dir.join(binary_name)).is_err() {
+        let source_binary_absolute = {
+            let source_binary_absolute_result = std::path::absolute(source_binary);
+
+            if let Ok(source_binary_absolute) = source_binary_absolute_result {
+                source_binary_absolute
+            } else {
+                return Err("Failed to get absolute source binary path");
+            }
+        };
+
+        if std::os::unix::fs::symlink(source_binary_absolute, destination_dir.join(binary_name))
+            .is_err()
+        {
             return Err("Failed to symlink binary");
         }
     }
