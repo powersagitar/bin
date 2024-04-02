@@ -38,7 +38,9 @@ fn main() {
                 .expect("Failed to parse destination")
                 .into();
 
-            bin::add(&source_binaries, &destination);
+            if let Err(err) = bin::add(&source_binaries, &destination) {
+                panic!("{}", err);
+            };
         }
         _ => unreachable!("Invalid subcommand"),
     }
