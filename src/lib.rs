@@ -1,4 +1,5 @@
 #![feature(absolute_path)]
+
 pub fn add(
     source_binaries: &[std::path::PathBuf],
     destination_directory: &std::path::Path,
@@ -57,6 +58,36 @@ pub fn add(
             return Err(format!(
                 "Failed to create symlink {:?} -> {:?}",
                 target_symlink, source_binary_absolute
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn prune(directory: &std::path::Path) -> Result<(), String> {
+    let read_dir = {
+        let read_dir_result = std::fs::read_dir(directory);
+
+        if let Ok(read_dir) = read_dir_result {
+            read_dir
+        } else {
+            return Err(format!("Failed to read directory {:?}", directory));
+        }
+    };
+
+    for dir_entry_result in read_dir {
+        if let Ok(dir_entry) = dir_entry_result {
+            if !dir_entry.path().exists() && std::fs::remove_file(dir_entry.path()).is_err() {
+                return Err(format!(
+                    "Failed to remove file/symlink {:?}",
+                    dir_entry.path()
+                ));
+            }
+        } else {
+            return Err(format!(
+                "Failed to unwrap directory entry {:?}",
+                dir_entry_result
             ));
         }
     }

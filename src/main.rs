@@ -26,6 +26,18 @@ fn main() {
                         .default_value(DEFAULT_BIN_INSTALL_PATH),
                 ),
         )
+        .subcommand(
+            clap::Command::new("prune")
+                .about("Remove symlinks resolving to void")
+                .arg(
+                    clap::Arg::new("DIRECTORY")
+                        .help("Target directory to prune")
+                        .short('d')
+                        .long("directory")
+                        .value_parser(clap::value_parser!(std::path::PathBuf))
+                        .default_value(DEFAULT_BIN_INSTALL_PATH),
+                ),
+        )
         .get_matches();
 
     match args.subcommand() {
@@ -45,6 +57,16 @@ fn main() {
                 panic!("{}", err);
             };
         }
-        _ => unreachable!("Invalid subcommand"),
+        Some(("prune", args)) => {
+            let destination: std::path::PathBuf = args
+                .get_one::<std::path::PathBuf>("DIRECTORY")
+                .expect("Failed to parse target directory")
+                .into();
+
+            if let Err(err) = bin::prune(&destination) {
+                panic!("{}", err);
+            };
+        }
+        _ => unreachable!("Unimplemented subcommand"),
     }
 }
