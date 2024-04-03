@@ -7,6 +7,7 @@ fn main() {
         .subcommand(
             clap::Command::new("add")
                 .about("Symlink binaries to destination")
+                .alias("install")
                 .arg(
                     clap::Arg::new("BINARIES")
                         .help("Paths to binaries to symlink")
