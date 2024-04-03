@@ -1,3 +1,5 @@
+const DEFAULT_BIN_INSTALL_PATH: &str = "/usr/local/bin";
+
 fn main() {
     let args = clap::command!()
         .propagate_version(true)
@@ -21,7 +23,7 @@ fn main() {
                         .short('d')
                         .long("destination")
                         .value_parser(clap::value_parser!(std::path::PathBuf))
-                        .default_value("/usr/local/bin"),
+                        .default_value(DEFAULT_BIN_INSTALL_PATH),
                 ),
         )
         .get_matches();
