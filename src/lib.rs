@@ -19,24 +19,27 @@ pub fn add(
             }
         };
 
-        if let Ok(output) = std::process::Command::new("which")
+        match std::process::Command::new("which")
             .arg(binary_name)
             .output()
         {
-            if !output.stdout.is_empty() {
-                eprintln!(
-                    "{:?} already exists as {:?}, skipping",
-                    binary_name,
-                    // Omit trailing line feed
-                    String::from_utf8_lossy(&output.stdout[..output.stdout.len() - 1])
-                );
-                continue;
+            Ok(output) => {
+                if !output.stdout.is_empty() {
+                    eprintln!(
+                        "{:?} already exists as {:?}, skipping",
+                        binary_name,
+                        // Omit trailing line feed
+                        String::from_utf8_lossy(&output.stdout[..output.stdout.len() - 1])
+                    );
+                    continue;
+                }
             }
-        } else {
-            return Err(format!(
-                "Failed to check if {:?} already exists on $PATH",
-                binary_name
-            ));
+            Err(err) => {
+                return Err(format!(
+                    "Failed to check if {:?} already exists on $PATH: {}",
+                    binary_name, err
+                ));
+            }
         }
 
         let source_binary_absolute = {
@@ -69,26 +72,26 @@ pub fn prune(directory: &std::path::Path) -> Result<(), String> {
     let read_dir = {
         let read_dir_result = std::fs::read_dir(directory);
 
-        if let Ok(read_dir) = read_dir_result {
-            read_dir
-        } else {
-            return Err(format!("Failed to read directory {:?}", directory));
+        match read_dir_result {
+            Ok(read_dir) => read_dir,
+            Err(err) => return Err(format!("Failed to read directory {:?}: {}", directory, err)),
         }
     };
 
     for dir_entry_result in read_dir {
-        if let Ok(dir_entry) = dir_entry_result {
-            if !dir_entry.path().exists() && std::fs::remove_file(dir_entry.path()).is_err() {
-                return Err(format!(
-                    "Failed to remove file/symlink {:?}",
-                    dir_entry.path()
-                ));
+        match dir_entry_result {
+            Ok(dir_entry) => {
+                if !dir_entry.path().exists() {
+                    if let Err(err) = std::fs::remove_file(dir_entry.path()) {
+                        return Err(format!(
+                            "Failed to remove file/symlink {:?}: {}",
+                            dir_entry.path(),
+                            err
+                        ));
+                    }
+                }
             }
-        } else {
-            return Err(format!(
-                "Failed to unwrap directory entry {:?}",
-                dir_entry_result
-            ));
+            Err(err) => return Err(format!("Failed to unwrap directory entry: {}", err)),
         }
     }
 
