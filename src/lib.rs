@@ -1,5 +1,27 @@
 #![feature(absolute_path)]
 
+pub fn bin_path(bin: &std::ffi::OsStr) -> Result<Option<std::path::PathBuf>, String> {
+    match std::process::Command::new("which").arg(bin).output() {
+        Ok(output) => {
+            if output.status.success() {
+                Ok(Some(
+                    // Omit trailing line feed
+                    match std::str::from_utf8(&output.stdout[..output.stdout.len() - 1]) {
+                        Ok(path) => path.into(),
+                        Err(err) => return Err(format!("Failed to parse which output: {}", err)),
+                    },
+                ))
+            } else {
+                Ok(None)
+            }
+        }
+        Err(err) => Err(format!(
+            "Failed to check if {:?} already exists on $PATH: {}",
+            bin, err
+        )),
+    }
+}
+
 pub fn add(
     source_binaries: &[std::path::PathBuf],
     destination_directory: &std::path::Path,
@@ -19,27 +41,13 @@ pub fn add(
             }
         };
 
-        match std::process::Command::new("which")
-            .arg(binary_name)
-            .output()
-        {
-            Ok(output) => {
-                if !output.stdout.is_empty() {
-                    eprintln!(
-                        "{:?} already exists as {:?}, skipping",
-                        binary_name,
-                        // Omit trailing line feed
-                        String::from_utf8_lossy(&output.stdout[..output.stdout.len() - 1])
-                    );
-                    continue;
-                }
+        match bin_path(binary_name) {
+            Ok(Some(path)) => {
+                eprintln!("{:?} already exists as {:?}, skipping", binary_name, path);
+                continue;
             }
-            Err(err) => {
-                return Err(format!(
-                    "Failed to check if {:?} already exists on $PATH: {}",
-                    binary_name, err
-                ));
-            }
+            Ok(None) => {}
+            Err(err) => return Err(err),
         }
 
         let source_binary_absolute = {
