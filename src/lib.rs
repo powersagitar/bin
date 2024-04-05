@@ -105,3 +105,129 @@ pub fn prune(directory: &std::path::Path) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_dir_base() -> std::path::PathBuf {
+        "/tmp/libbin-tests".into()
+    }
+
+    fn test_dir() -> std::path::PathBuf {
+        static mut TEST_COUNTER: u32 = 0;
+        test_dir_base().join(format!("test-{}", unsafe {
+            TEST_COUNTER += 1;
+            TEST_COUNTER
+        }))
+    }
+
+    fn test_bin_install_path(test_dir: &std::path::Path) -> std::path::PathBuf {
+        test_dir.join("bin")
+    }
+
+    fn initialize_test_dir(test_dir: &std::path::Path) {
+        if test_dir.exists() {
+            std::fs::remove_dir_all(&test_dir).unwrap();
+        }
+
+        std::fs::create_dir_all(&test_dir).unwrap();
+
+        let bin_install_path = test_bin_install_path(test_dir);
+
+        std::fs::create_dir(bin_install_path).unwrap();
+    }
+
+    #[test]
+    fn test_bin_path_valid() {
+        let result = bin_path(std::ffi::OsStr::new("which"));
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_some());
+    }
+
+    #[test]
+    fn test_bin_path_invalid() {
+        let result = bin_path(std::ffi::OsStr::new("nonexistent"));
+
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_add_successful() {
+        let test_dir = test_dir();
+
+        initialize_test_dir(&test_dir);
+
+        let source_binary = std::path::PathBuf::from(test_dir.join("test-bin"));
+
+        std::fs::write(&source_binary, b"#!/bin/sh\necho test").unwrap();
+
+        add(&[source_binary], &test_bin_install_path(&test_dir)).unwrap();
+
+        assert!(test_bin_install_path(&test_dir).join("test-bin").exists());
+    }
+
+    #[test]
+    fn test_add_invalid_bin() {
+        let test_dir = test_dir();
+
+        initialize_test_dir(&test_dir);
+
+        let source_binary = std::path::PathBuf::from("/nonexistent");
+
+        let result = add(&[source_binary], &test_bin_install_path(&test_dir));
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_add_existing_bin() {
+        let test_dir = test_dir();
+
+        initialize_test_dir(&test_dir);
+
+        let source_binary = test_dir.join("which");
+
+        std::fs::write(&source_binary, "").unwrap();
+
+        add(&[source_binary], &test_bin_install_path(&test_dir)).unwrap();
+
+        assert!(!test_bin_install_path(&test_dir).join("which").exists());
+    }
+
+    #[test]
+    fn test_prune_preserve_valid_symlinks() {
+        let test_dir = test_dir();
+
+        initialize_test_dir(&test_dir);
+
+        let bin_install_path = test_bin_install_path(&test_dir);
+
+        let source_binary = std::path::PathBuf::from("/bin/ls");
+
+        std::os::unix::fs::symlink(&source_binary, bin_install_path.join("ls")).unwrap();
+
+        prune(&bin_install_path).unwrap();
+
+        assert!(bin_install_path.join("ls").exists());
+    }
+
+    #[test]
+    fn test_prune_remove_void_symlinks() {
+        let test_dir = test_dir();
+
+        initialize_test_dir(&test_dir);
+
+        let bin_install_path = test_bin_install_path(&test_dir);
+
+        let source_binary = std::path::PathBuf::from("/nonexistent");
+
+        std::os::unix::fs::symlink(&source_binary, bin_install_path.join("nonexistent")).unwrap();
+
+        prune(&bin_install_path).unwrap();
+
+        assert!(!bin_install_path.join("nonexistent").exists());
+    }
+}
