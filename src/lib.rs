@@ -76,6 +76,39 @@ pub fn add(
     Ok(())
 }
 
+pub fn remove(binaries: &[std::ffi::OsString]) -> Result<(), String> {
+    for bin in binaries {
+        let bin_install_path = {
+            let bin_install_path_result = bin_path(bin);
+
+            match bin_install_path_result {
+                Ok(Some(bin_install_path)) => bin_install_path,
+                Ok(None) => {
+                    return Err(format!(
+                        "Binary {:?} does not exist on $PATH, nothing to remove",
+                        bin
+                    ))
+                }
+                Err(err) => {
+                    return Err(format!(
+                        "Failed to check if {:?} already exists on $PATH: {}",
+                        bin, err
+                    ))
+                }
+            }
+        };
+
+        if let Err(err) = std::fs::remove_file(&bin_install_path) {
+            return Err(format!(
+                "Failed to remove file/symlink {:?}: {:?}",
+                bin_install_path, err
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 pub fn prune(directory: &std::path::Path) -> Result<(), String> {
     let read_dir = {
         let read_dir_result = std::fs::read_dir(directory);
@@ -229,5 +262,38 @@ mod tests {
         prune(&bin_install_path).unwrap();
 
         assert!(!bin_install_path.join("nonexistent").exists());
+    }
+
+    #[test]
+    fn test_remove_successful() {
+        let test_dir = test_dir();
+        initialize_test_dir(&test_dir);
+
+        let test_bin_install_path = test_bin_install_path(&test_dir);
+
+        let path = std::env::var_os("PATH").unwrap();
+        let mut paths = std::env::split_paths(&path).collect::<Vec<_>>();
+        paths.push(test_bin_install_path.clone());
+        let new_path = std::env::join_paths(paths).unwrap();
+        std::env::set_var("PATH", &new_path);
+
+        let test_bin = test_bin_install_path.join("libbin-test-bin");
+        std::fs::write(&test_bin, "").unwrap();
+        std::fs::set_permissions(
+            &test_bin,
+            std::os::unix::fs::PermissionsExt::from_mode(0b111_101_101),
+        )
+        .unwrap();
+
+        remove(&["libbin-test-bin".into()]).unwrap();
+
+        assert!(!test_bin.exists());
+    }
+
+    #[test]
+    fn test_remove_nonexistent() {
+        let result = remove(&["nonexistent".into()]);
+
+        assert!(result.is_err());
     }
 }

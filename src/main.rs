@@ -27,6 +27,20 @@ fn main() {
                 ),
         )
         .subcommand(
+            clap::Command::new("remove")
+                .about("Remove binaries from $PATH")
+                .alias("rm")
+                .alias("uninstall")
+                .alias("delete")
+                .arg(
+                    clap::Arg::new("BINARIES")
+                        .help("Paths to binaries to remove")
+                        .value_parser(clap::value_parser!(std::ffi::OsString))
+                        .action(clap::ArgAction::Append)
+                        .required(true),
+                ),
+        )
+        .subcommand(
             clap::Command::new("prune")
                 .about("Remove symlinks resolving to void")
                 .arg(
@@ -57,6 +71,19 @@ fn main() {
                 panic!("{}", err);
             };
         }
+
+        Some(("remove", args)) => {
+            let binaries: Vec<std::ffi::OsString> = args
+                .get_many::<std::ffi::OsString>("BINARIES")
+                .expect("Failed to parse binaries")
+                .map(|os_string_ref| os_string_ref.into())
+                .collect();
+
+            if let Err(err) = bin::remove(&binaries) {
+                panic!("{}", err);
+            };
+        }
+
         Some(("prune", args)) => {
             let destination: std::path::PathBuf = args
                 .get_one::<std::path::PathBuf>("DIRECTORY")
