@@ -1,5 +1,3 @@
-#![feature(absolute_path)]
-
 pub fn bin_path(bin: &std::ffi::OsStr) -> Result<Option<std::path::PathBuf>, String> {
     match std::process::Command::new("which").arg(bin).output() {
         Ok(output) => {
